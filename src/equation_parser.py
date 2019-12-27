@@ -19,6 +19,11 @@ from enum import Enum
 #   Numbers must be leaves
 #   Parentheses generate sub trees to be evaluated. The can be leaves or nodes (kinda? will think about this) 
 
+# Nodes can consist of 3 values
+# Number/Value <- Leaf
+# Operator <- parent of two children
+#  
+
 class OperatorType(Enum):
     ADDITION = 1
     SUBTRACTION = 2
@@ -47,13 +52,19 @@ class Types(Enum):
     OPEN_PARENTHESES = 3
     CLOSE_PARENTHESES = 4
 
-def GenerateTree(line):
-    open_parentheses_count = 0
-    valid_types = {Types.NUMBER, Types.OPEN_PARENTHESES}
-    current_type = None
-    current_number = None
+def CharToOperatorType(val):
+    if val == '+':
+        return OperatorType.ADDITION
+    if val == '-':
+        return OperatorType.SUBTRACTION
+    if val == '/':
+        return OperatorType.DIVISION
+    if val == '*':
+        return OperatorType.MULTIPLICATION
 
-    current_node = None
+def GenerateOrderedTypeList(line):
+    current_number = None
+    retval = []
     for char in line:
         examined_type = None
         if char.isnumeric():
@@ -66,39 +77,23 @@ def GenerateTree(line):
             examined_type = Types.OPERATOR
         else:
             raise ValueError("Invalid type: {}".format(char))
-        
-        if examined_type in valid_types:
-            if examined_type == Types.NUMBER:
-                # add to number
-                if not current_number:
-                    current_number = char
-                else:
-                    current_number = current_number + char
-                # state transition
-                valid_types = {Types.OPERATOR, Types.Number}
-                if open_parentheses_count != 0:
-                    valid_types.add(Types.CLOSE_PARENTHESES)
-            elif examined_type == Types.OPEN_PARENTHESES:
-                open_parentheses_count += 1
-                valid_types = {Types.NUMBER, Types.OPEN_PARENTHESES}
-            elif examined_type == Types.CLOSE_PARENTHESES:
-                open_parentheses_count -= 1
-                valid_types = {Types.NUMBER, Types.OPERATOR, TYPES.CLOSE_PARENTHESES}
-            elif examined_type == Types.OPERATOR:
-                operator_type = None
-                if char == '+':
-                    operator_type = OperatorType.ADDITION
-                elif char == '-':
-                    operator_type = OperatorType.SUBTRACTION
-                elif char == '*':
-                    operator_type = OperatorType.MULTIPLICATION
-                else:
-                    operator_type = OperatorType.DIVISION
-                    
-                current_number = None
-                valid_types = {Types.NUMBER, Types.OPEN_PARENTHESES}
+
+        if examined_type == Types.NUMBER:
+            if current_number:
+                current_number = current_number + char
+            else:
+                current_number = char
         else:
-            raise ValueError("Unexpected type :{}. Valid types: {}", examined_type, valid_types)
+            if current_number:
+                retval.append((Types.NUMBER, int(current_number)))
+                current_number = None
+            if examined_type == Types.OPERATOR:
+                retval.append((Types.OPERATOR, CharToOperatorType(char)))
+            elif examined_type == Types.OPEN_PARENTHESES:
+                retval.append((Types.OPEN_PARENTHESES))
+            elif examined_type == Types.CLOSE_PARENTHESES:
+                retval.append((Types.CLOSE_PARENTHESES))
+    return retval
 
 class ExpectedType(Enum):
     NUMBER = 1
@@ -207,6 +202,7 @@ def ParseLineWithParentheses(line):
     return retval
 
 def main():
+    print(GenerateOrderedTypeList("(1+2)/(4*(9))"))
     print(ParseLineWithParentheses("(1+2)*(4*6)"))
     pass
 
