@@ -98,7 +98,18 @@ def GenerateOrderedTypeList(line):
 
 # Need to write down an algorithm for this. Too difficult to just solve in my head. Need to write
 # down grammar and then pseudo code to implement it. Too many cases.
-def GenerateTree(type_and_data_list):
+
+# Strategy
+# When we see '(' called GenerateTree on rest of range
+#   If previous_node doesn't exist, set previous node equal to GenerateTreeImpl return value
+#   Else set previous_node right node to GenerateTreeImpl return value
+# 'previous_node' should always be a valid tree
+# When we see a number, look at previous_node
+#   If it doesn't exist, create a node with a number in it and make it a leaf node
+#   If it does exist create new node which is right leaf of previous node
+# When we see ')' return previous_node
+
+def GenerateTreeImpl(type_and_data_list):
     previous_node = None
     for i in range(0, len(type_and_data_list)):
         type_and_data = type_and_data_list[i]
@@ -124,6 +135,8 @@ def GenerateTree(type_and_data_list):
                 previous_node.right = node
             else:
                 previous_node = node
+        # BECAUSE WE ARE RETURNING, WE NEED TO KNOW WHERE WE WERE PREVIOUSLY
+        # SO WE DON'T REPEAT THE COMPUTATION
         elif type_and_data[0] == Types.CLOSE_PARENTHESES:
             return previous_node
 
@@ -151,7 +164,7 @@ def RenderTree(level_list):
 
 def main():
     val = GenerateOrderedTypeList("(1+2)/(4*(9))")
-    temp = GenerateTree(val)
+    temp = GenerateTreeImpl(val)
     level_list = TraverseTree(temp)
     RenderTree(level_list)
     pass
