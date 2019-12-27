@@ -35,11 +35,6 @@ class NodeType(Enum):
     SUBTREE = 2
     NUMBER = 3
 
-class NodeTypeAndData:
-    def __init__(self, node_type, node_data = None):
-        self.node_type = node_type
-        self.node_data = node_data
-
 class Node:
     def __init__(self):
         self.type_and_data = None
@@ -90,120 +85,45 @@ def GenerateOrderedTypeList(line):
             if examined_type == Types.OPERATOR:
                 retval.append((Types.OPERATOR, CharToOperatorType(char)))
             elif examined_type == Types.OPEN_PARENTHESES:
-                retval.append((Types.OPEN_PARENTHESES))
+                retval.append((Types.OPEN_PARENTHESES,))
             elif examined_type == Types.CLOSE_PARENTHESES:
-                retval.append((Types.CLOSE_PARENTHESES))
+                retval.append((Types.CLOSE_PARENTHESES,))
     return retval
 
-class ExpectedType(Enum):
-    NUMBER = 1
-    NUMBER_OR_OPERATOR = 2
-
-class ParenthesesType(Enum):
-    OPEN = 1
-    CLOSE = 2
-
-def GetParenthesesPairs(line):
-    pairs = []
-    open_count = 0
-    close_count = 0
-    for i in range(0, len(line)):
-        if line[i] == '(':
-            pairs.append((i, ParenthesesType.OPEN))
-            open_count = open_count + 1
-        elif line [i] == ')':
-            pairs.append((i, ParenthesesType.CLOSE))
-            close_count = close_count + 1
-    if open_count != close_count:
-        raise ValueError("open count {} != close count {}".format(open_count, close_count))
-
-    if (open_count == 0):
-        return []
-
-    retval = []
-    while len(pairs) > 0:
-        found_match = False
-        for i in range(0, len(pairs) - 1):
-            if pairs[i][1] == ParenthesesType.OPEN and pairs[i + 1][1] == ParenthesesType.CLOSE:
-                retval.append((pairs[i][0], pairs[i + 1][0]))
-                del pairs[i + 1]
-                del pairs[i]
-                found_match = True
-                break
-        if not found_match:
-            raise ValueError("Unbalanced Parentheses")
-
-    return retval
-
-
-def ParseStatement(line):
-    expected_type = ExpectedType.NUMBER
-    current_number = None
-    number_list = []
-    operator_list = []
-    for i in range(0, len(line)):
-        current_char = line[i]
-        if expected_type == ExpectedType.NUMBER:
-            if current_char.isnumeric():
-                current_number = current_char
-                expected_type = ExpectedType.NUMBER_OR_OPERATOR
+def GenerateTree(type_and_data_list):
+    current_node = Node()
+    for i in range(0, len(type_and_data_list)):
+        type_and_data = type_and_data_list[i]
+        print(type_and_data)
+        if type_and_data[0] == Types.NUMBER:
+            node = Node()
+            node.type_and_data = (NodeType.NUMBER, type_and_data[1])
+            if not current_node.left:
+                current_node.left = node
             else:
-                print("ERROR, char {} at pos {} not a number".format(current_char, i))
-                exit()
-        elif expected_type == ExpectedType.NUMBER_OR_OPERATOR:
-            if current_char.isnumeric():
-                current_number += current_char
+                current_node.right = node
+                copy_node = current_node
+                current_node = Node()
+                current_node.left = copy_node
+        elif type_and_data[0] == Types.OPERATOR:
+            current_node.type_and_data = (NodeType.OPERATOR, type_and_data[1])
+        elif type_and_data[0] == Types.OPEN_PARENTHESES:
+            if not current_node.left:
+                continue
             else:
-                if current_char in ['+', '-', '/', '*']:
-                    number_list.append(current_number)
-                    current_number = None
-                    expected_type = ExpectedType.NUMBER
-                    operator_list.append(current_char)
-                else:
-                    print("ERROR, char {} at pos {} not a number".format(current_char, i))
-                    exit()
-    if (current_number):
-        number_list.append(current_number)
+                node = GenerateTree(type_and_data_list[i + 1:])
+                current_node.right = node
+                copy_node = current_node
+                current_node = Node()
+                current_node.left = copy_node
+        elif type_and_data[0] == Types.CLOSE_PARENTHESES:
+            return current_node
 
-    for i in range(0, len(number_list)):
-        number_list[i] = int(number_list[i])
-
-    # find all divisions
-    while '/' in operator_list:
-        index = operator_list.index("/")
-        number_list[index] = number_list[index] / number_list[index + 1]
-        del number_list[index + 1]
-        del operator_list[index]
-
-    # find all multiplications
-    while '*' in operator_list:
-        index = operator_list.index("*")
-        number_list[index] = number_list[index] * number_list[index + 1]
-        del number_list[index + 1]
-        del operator_list[index]
-
-    current_value = number_list[0]
-    for i in range(0, len(operator_list)):
-        if operator_list[i] == '+':
-            current_value += number_list[i + 1]
-        elif operator_list[i] == '-':
-            current_value -= number_list[i + 1]
-    return current_value
-
-def ParseLineWithParentheses(line):
-    stripped_line = ''.join(line.strip())
-    if len(stripped_line) == 0:
-        print("Line of length 0 not allowed")
-        exit()
-    pairs = GetParenthesesPairs(stripped_line)
-    retval = 0
-    for pair in pairs:
-        retval += ParseStatement(stripped_line[pair[0] + 1 : pair[1]])
-    return retval
+    return current_node
 
 def main():
-    print(GenerateOrderedTypeList("(1+2)/(4*(9))"))
-    print(ParseLineWithParentheses("(1+2)*(4*6)"))
+    val = GenerateOrderedTypeList("(1+2)/(4*(9))")
+    temp = GenerateTree(val)
     pass
 
 if __name__ == "__main__":
