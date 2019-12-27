@@ -40,6 +40,12 @@ class Node:
         self.type_and_data = None
         self.left = None
         self.right = None
+    
+    def IsEmpty(self):
+        return self.type_and_data == None and self.left == None and self.right == None
+    
+    def IsFull(self):
+        return self.type_and_data != None and self.left != None and self.right != None
 
 class Types(Enum):
     NUMBER = 1
@@ -90,40 +96,64 @@ def GenerateOrderedTypeList(line):
                 retval.append((Types.CLOSE_PARENTHESES,))
     return retval
 
+# Need to write down an algorithm for this. Too difficult to just solve in my head. Need to write
+# down grammar and then pseudo code to implement it. Too many cases.
 def GenerateTree(type_and_data_list):
-    current_node = Node()
+    previous_node = None
     for i in range(0, len(type_and_data_list)):
         type_and_data = type_and_data_list[i]
-        print(type_and_data)
         if type_and_data[0] == Types.NUMBER:
             node = Node()
             node.type_and_data = (NodeType.NUMBER, type_and_data[1])
-            if not current_node.left:
-                current_node.left = node
+            if previous_node:
+                previous_node.right = node
+                new_node = Node()
+                new_node.left = previous_node
+                previous_node = new_node
             else:
-                current_node.right = node
-                copy_node = current_node
-                current_node = Node()
-                current_node.left = copy_node
+                previous_node = Node()
+                previous_node.left = node
         elif type_and_data[0] == Types.OPERATOR:
-            current_node.type_and_data = (NodeType.OPERATOR, type_and_data[1])
+            node = Node()
+            node.type_and_data = (NodeType.OPERATOR, type_and_data[1])
+            node.left = previous_node
+            previous_node = node
         elif type_and_data[0] == Types.OPEN_PARENTHESES:
-            if not current_node.left:
-                continue
+            node = GenerateTree(type_and_data_list[i + 1:])
+            if previous_node:
+                previous_node.right = node
             else:
-                node = GenerateTree(type_and_data_list[i + 1:])
-                current_node.right = node
-                copy_node = current_node
-                current_node = Node()
-                current_node.left = copy_node
+                previous_node = node
         elif type_and_data[0] == Types.CLOSE_PARENTHESES:
-            return current_node
+            return previous_node
 
-    return current_node
+    return previous_node
+
+def _traverseTreeImpl(root, level_list, current_level):
+    if current_level in level_list:
+        level_list[current_level].append(root.type_and_data)
+    else:
+        level_list[current_level] = [root.type_and_data]
+    if root.left:
+        _traverseTreeImpl(root.left, level_list, current_level + 1)
+    if root.right:
+        _traverseTreeImpl(root.right, level_list, current_level + 1)
+
+def TraverseTree(root):
+    level_list = {}
+    if root:
+        _traverseTreeImpl(root, level_list, 0)
+    return level_list
+
+def RenderTree(level_list):
+    for i in range(0, len(level_list)):
+        print("Level: {}. List: {}".format(i, level_list[i]))
 
 def main():
     val = GenerateOrderedTypeList("(1+2)/(4*(9))")
     temp = GenerateTree(val)
+    level_list = TraverseTree(temp)
+    RenderTree(level_list)
     pass
 
 if __name__ == "__main__":
