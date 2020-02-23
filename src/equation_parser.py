@@ -21,31 +21,13 @@ from enum import Enum
 
 # Nodes can consist of 3 values
 # Number/Value <- Leaf
-# Operator <- parent of two children
-#  
+# Operator <- parent of two children]
 
 class OperatorType(Enum):
     ADDITION = 1
     SUBTRACTION = 2
     MULTIPLICATION = 3
     DIVISION = 4
-
-class NodeType(Enum):
-    OPERATOR = 1
-    SUBTREE = 2
-    NUMBER = 3
-
-class Node:
-    def __init__(self):
-        self.type_and_data = None
-        self.left = None
-        self.right = None
-    
-    def IsEmpty(self):
-        return self.type_and_data == None and self.left == None and self.right == None
-    
-    def IsFull(self):
-        return self.type_and_data != None and self.left != None and self.right != None
 
 class Types(Enum):
     NUMBER = 1
@@ -62,6 +44,26 @@ def CharToOperatorType(val):
         return OperatorType.DIVISION
     if val == '*':
         return OperatorType.MULTIPLICATION
+
+def OperatorRank(operator):
+    if operator == OperatorType.ADDITION:
+        return 1
+    elif operator == OperatorType.SUBTRACTION:
+        return 1
+    elif operator == OperatorType.MULTIPLICATION:
+        return 2
+    elif operator == OperatorType.DIVISION:
+        return 2
+
+def IsLeftAssociative(operator):
+    if operator == OperatorType.ADDITION:
+        return False
+    elif operator == OperatorType.SUBTRACTION:
+        return True
+    elif operator == OperatorType.MULTIPLICATION:
+        return False
+    elif operator == OperatorType.DIVISION:
+        return True
 
 def GenerateOrderedTypeList(line):
     current_number = None
@@ -96,77 +98,78 @@ def GenerateOrderedTypeList(line):
                 retval.append((Types.CLOSE_PARENTHESES,))
     return retval
 
-# Need to write down an algorithm for this. Too difficult to just solve in my head. Need to write
-# down grammar and then pseudo code to implement it. Too many cases.
+def GenerateRPN(type_list):
+    output_queue = []
+    operator_stack = []
+    for val in type_list:
+        if val[0] == Types.NUMBER:
+            output_queue.append(val)
+        elif val[0] == Types.OPEN_PARENTHESES:
+            operator_stack.append(val)
+        elif val[0] == Types.CLOSE_PARENTHESES:
+            while len(operator_stack) > 0:
+                current_operator = operator_stack[-1]
+                if current_operator[0] == Types.OPERATOR:
+                    output_queue.append(current_operator)
+                    operator_stack.pop()
+                elif current_operator[0] == Types.OPEN_PARENTHESES:
+                    operator_stack.pop()
+                    break
+        else:
+            while len(operator_stack) > 0:
+                current_operator = operator_stack[-1]
+                print(current_operator)
+                if current_operator[0] == Types.OPEN_PARENTHESES:
+                    break
+                if current_operator[0] == Types.OPERATOR:
+                    if OperatorRank(current_operator[1]) > OperatorRank(val[1]):
+                        output_queue.append(current_operator)
+                        operator_stack.pop()
+                    elif OperatorRank(current_operator[1]) == OperatorRank(val[1]) and IsLeftAssociative(val[1]):
+                        output_queue.append(current_operator)
+                        operator_stack.pop()
+                    else:
+                        break
+            operator_stack.append(val)
 
-# Strategy
-# When we see '(' called GenerateTree on rest of range
-#   If previous_node doesn't exist, set previous node equal to GenerateTreeImpl return value
-#   Else set previous_node right node to GenerateTreeImpl return value
-# 'previous_node' should always be a valid tree
-# When we see a number, look at previous_node
-#   If it doesn't exist, create a node with a number in it and make it a leaf node
-#   If it does exist create new node which is right leaf of previous node
-# When we see ')' return previous_node
+    while len(operator_stack) > 0:
+        output_queue.append(operator_stack.pop())
+    return output_queue
 
-def GenerateTreeImpl(type_and_data_list):
-    previous_node = None
-    for i in range(0, len(type_and_data_list)):
-        type_and_data = type_and_data_list[i]
-        if type_and_data[0] == Types.NUMBER:
-            node = Node()
-            node.type_and_data = (NodeType.NUMBER, type_and_data[1])
-            if previous_node:
-                previous_node.right = node
-                new_node = Node()
-                new_node.left = previous_node
-                previous_node = new_node
-            else:
-                previous_node = Node()
-                previous_node.left = node
-        elif type_and_data[0] == Types.OPERATOR:
-            node = Node()
-            node.type_and_data = (NodeType.OPERATOR, type_and_data[1])
-            node.left = previous_node
-            previous_node = node
-        elif type_and_data[0] == Types.OPEN_PARENTHESES:
-            node = GenerateTree(type_and_data_list[i + 1:])
-            if previous_node:
-                previous_node.right = node
-            else:
-                previous_node = node
-        # BECAUSE WE ARE RETURNING, WE NEED TO KNOW WHERE WE WERE PREVIOUSLY
-        # SO WE DON'T REPEAT THE COMPUTATION
-        elif type_and_data[0] == Types.CLOSE_PARENTHESES:
-            return previous_node
-
-    return previous_node
-
-def _traverseTreeImpl(root, level_list, current_level):
-    if current_level in level_list:
-        level_list[current_level].append(root.type_and_data)
-    else:
-        level_list[current_level] = [root.type_and_data]
-    if root.left:
-        _traverseTreeImpl(root.left, level_list, current_level + 1)
-    if root.right:
-        _traverseTreeImpl(root.right, level_list, current_level + 1)
-
-def TraverseTree(root):
-    level_list = {}
-    if root:
-        _traverseTreeImpl(root, level_list, 0)
-    return level_list
-
-def RenderTree(level_list):
-    for i in range(0, len(level_list)):
-        print("Level: {}. List: {}".format(i, level_list[i]))
+def EvaluateRPN(rpn_queue):
+    while len(rpn_queue) > 1:
+        found_operator = False
+        for i in range(0, len(rpn_queue)):
+            if rpn_queue[i][0] == Types.OPERATOR:
+                found_operator = True
+                break
+        assert found_operator, "Couldn't find operator"
+        left_operand = rpn_queue[i - 2]
+        right_operand = rpn_queue[i - 1]
+        operator = rpn_queue[i]
+        val = None
+        if operator[1] == OperatorType.ADDITION:
+            val = left_operand[1] + right_operand[1]
+        elif operator[1] == OperatorType.SUBTRACTION:
+            val = left_operand[1] - right_operand[1]
+        elif operator[1] == OperatorType.MULTIPLICATION:
+            val = left_operand[1] * right_operand[1]
+        elif operator[1] == OperatorType.DIVISION:
+            val = left_operand[1] / right_operand[1]
+        else:
+            assert False, "Oh no"
+        rpn_queue[i - 2] = (Types.NUMBER, val)
+        rpn_queue.pop(i - 1)
+        rpn_queue.pop(i - 1)
+    
+    assert rpn_queue[0][0] == Types.NUMBER
+    return rpn_queue[0][1]
 
 def main():
-    val = GenerateOrderedTypeList("(1+2)/(4*(9))")
-    temp = GenerateTreeImpl(val)
-    level_list = TraverseTree(temp)
-    RenderTree(level_list)
+    type_list = GenerateOrderedTypeList("(10*61/3+2)/(4-1*(9/100+(132*7)/8))")
+    rpn = GenerateRPN(type_list)
+    value = EvaluateRPN(rpn)
+    print(value)
     pass
 
 if __name__ == "__main__":
